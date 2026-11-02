@@ -24,13 +24,56 @@ const db = new pg.Client({
 
 db.connect();
 
-app.use(session({
-  secret: process.env.SESSION_SECRET, // replace with a secure secret
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false } // Set to true if using HTTPS
-}));
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false, // Local development only
+    sameSite: "lax"
+  }
+});
 
+app.use(sessionMiddleware);
+
+function requireAuth(req, res, next) {
+  if (!req.session.userId) {
+    return res.redirect("/login");
+  }
+
+  next();
+}
+
+function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.session.userId) {
+      return res.redirect("/login");
+    }
+
+    if (req.session.role !== role) {
+      return res.status(403).send("Access denied");
+    }
+
+    next();
+  };
+}
+
+function requireRegistration(role) {
+  return (req, res, next) => {
+    const userData = req.session.userData;
+
+    if (!userData) {
+      return res.redirect("/signup");
+    }
+
+    if (userData.role !== role) {
+      return res.status(403).send("Access denied");
+    }
+
+    next();
+  };
+}
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
@@ -56,9 +99,11 @@ app.post("/login", async (req, res) => {
     const user = result.rows[0];
 
     if (user && bcrypt.compareSync(password, user.password)) {
-      req.session.userId = user.user_id; // Store user ID in session
+      req.session.userId = user.user_id;
+      req.session.role = user.role;
+
       res.redirect("/" + user.role);
-    } else {
+    }else {
       res.render("login.ejs", { error: "Invalid email or password" });
     }
   } catch (err) {
@@ -81,7 +126,7 @@ app.post("/register", async (req, res) => {
   
 })
 
-app.post("/tenant-info", async(req, res) => {
+app.post("/tenant-info", requireRegistration("tenant"), async (req, res) => {
   const { address, date_of_birth, national_id_number, employment_status, credit_score } = req.body;
   const { firstName, lastName, password, email, phone, role } = req.session.userData;
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -100,14 +145,15 @@ app.post("/tenant-info", async(req, res) => {
       [userId, firstName, lastName, address, date_of_birth, national_id_number, phone, email, employment_status, credit_score]
     );
 
-   res.redirect("/tenant");
+   delete req.session.userData;
+   res.redirect("/login");
   } catch (err) {
     console.error("Error adding tenant information:", err);
     res.status(500).send("Error adding tenant information");
   }
 })
 
-app.post("/landlord-info", async(req, res) =>{
+app.post("/landlord-info", requireRegistration("landlord"), async (req, res) => {
   const { company} = req.body;
   const { firstName, lastName, password, email, phone, role } = req.session.userData;
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -126,14 +172,15 @@ app.post("/landlord-info", async(req, res) =>{
       [userId, company]
     );
 
-   res.redirect("/landlord");
+   delete req.session.userData;
+   res.redirect("/login");
   } catch (err) {
     console.error("Error adding tenant information:", err);
     res.status(500).send("Error adding tenant information");
   }
 })
 
-app.post("/lawyer-info", async(req, res) =>{
+app.post("/lawyer-info", requireRegistration("lawyer"), async (req, res) => {
   const { licenseNumber, jurisdiction} = req.body;
   const { firstName, lastName, password, email, phone, role } = req.session.userData;
   const hashedPassword = bcrypt.hashSync(password, 10);
@@ -152,17 +199,13 @@ app.post("/lawyer-info", async(req, res) =>{
       [userId, licenseNumber, jurisdiction]
     );
 
-   res.redirect("/lawyer");
+   delete req.session.userData;
+   res.redirect("/login");
   } catch (err) {
     console.error("Error adding tenant information:", err);
     res.status(500).send("Error adding tenant information");
   }
 })
-
-app.get("/landlord", (req, res) => {
- 
-  res.render("landlord.ejs"); // Render dashboard page
-});
 
 app.get("/login", (req, res) => {
  
@@ -174,36 +217,36 @@ app.get("/signup", (req, res) => {
   res.render("signup.ejs"); // Render dashboard page
 });
 
-app.get("/tenantInfo", (req, res) => {
- 
-  res.render("tenantInfo.ejs"); // Render dashboard page
+app.get("/tenantInfo", requireRegistration("tenant"), (req, res) => {
+  res.render("tenantInfo.ejs");
 });
 
-app.get("/landlordInfo", (req, res) => {
- 
-  res.render("landlordInfo.ejs"); // Render dashboard page
+app.get("/landlordInfo", requireRegistration("landlord"), (req, res) => {
+  res.render("landlordInfo.ejs");
 });
 
-app.get("/lawyerInfo", (req, res) => {
- 
-  res.render("lawyerInfo.ejs"); // Render dashboard page
+app.get("/lawyerInfo", requireRegistration("lawyer"), (req, res) => {
+  res.render("lawyerInfo.ejs");
 });
 
-app.get("/tenant", (req, res) => {
+app.get("/tenant", requireRole("tenant"), (req, res) => {
   res.render("tenant.ejs");
-})
+});
+app.get("/landlord", requireRole("landlord"), (req, res) => {
+  res.render("landlord.ejs");
+});
 
-app.get("/lawyer", (req, res) => {
+app.get("/lawyer", requireRole("lawyer"), (req, res) => {
   res.render("lawyer.ejs");
-})
-app.get("/pricing", (req, res) => {
-  res.render("pricing.ejs");
-})
+});
 
-app.get("/message", async (req, res) => {
+app.get("/message", requireAuth, async (req, res) => {
+  const senderId = req.session.userId;
+  const receiverId = parseInt(req.query.user_id, 10);
 
-  const senderId = 13//req.session.userId; // Assuming the user's ID is stored in the session /*CHANGE HERE */
- const receiverId =  parseInt(req.query.user_id);
+  if (!Number.isInteger(receiverId)) {
+    return res.status(400).send("Invalid receiver");
+  }
 
   try {
       const result = await db.query(`
@@ -230,10 +273,33 @@ app.get("/message", async (req, res) => {
   //   userId: req.session.userId
   // });
 })
+app.get("/api/users/search", requireAuth, async (req, res) => {
+  const search = String(req.query.q || "").trim();
 
-app.get("/chat", async (req, res)=>{
-  const senderId = 13; //req.session.userId; // Assuming the user's ID is stored in the session /*CHANGE HERE */
-  req.session.userId = senderId;
+  if (search.length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT user_id, first_name, last_name
+       FROM users
+       WHERE user_id <> $1
+         AND (first_name ILIKE $2 OR last_name ILIKE $2)
+       ORDER BY first_name
+       LIMIT 20`,
+      [req.session.userId, `%${search}%`]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error searching users:", err);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+app.get("/chat", requireAuth, async (req, res) => {
+  const senderId = req.session.userId;
+
   try {
     const result = await db.query(`
       SELECT DISTINCT 
@@ -285,7 +351,23 @@ const server = app.listen(port, () => {
 
 const io = new Server(server);
 
-const chatNamespace = io.of('/chat');
+const chatNamespace = io.of("/chat");
+
+// Give Socket.IO access to Express sessions
+chatNamespace.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
+});
+
+// Reject unauthenticated connections
+chatNamespace.use((socket, next) => {
+  const userId = socket.request.session?.userId;
+
+  if (!userId) {
+    return next(new Error("Unauthorized"));
+  }
+
+  next();
+});
 // Listen for new connections
 // chatNamespace.on('connection', (socket) => {
 //   // Handle messages from clients
@@ -295,29 +377,56 @@ const chatNamespace = io.of('/chat');
 //   });
 // });
 
-chatNamespace.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+chatNamespace.on("connection", (socket) => {
+  const senderId = socket.request.session.userId;
 
-  socket.on('message', async (data) => {
-    const { senderId, receiverId, message } = data;
+  console.log(`User ${senderId} connected`);
+
+  // Each user joins a room associated with their account
+  socket.join(`user:${senderId}`);
+
+  socket.on("message", async (data) => {
+    const receiverId = Number(data?.receiverId);
+    const message = data?.message;
+
+    if (
+      !Number.isSafeInteger(receiverId) ||
+      receiverId <= 0 ||
+      typeof message !== "string" ||
+      !message.trim() ||
+      message.length > 2000
+    ) {
+      return;
+    }
 
     try {
-      // Save message to the database
-      await db.query(
-        'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)',
-        [senderId, receiverId, message]
+      const result = await db.query(
+        `INSERT INTO messages (sender_id, receiver_id, content)
+         VALUES ($1, $2, $3)
+         RETURNING message_id, created_at`,
+        [senderId, receiverId, message.trim()]
       );
 
-      console.log( { senderId, receiverId, message } )
+      const savedMessage = {
+        messageId: result.rows[0].message_id,
+        senderId,
+        receiverId,
+        message: message.trim(),
+        createdAt: result.rows[0].created_at
+      };
 
-      // Broadcast message to the receiver
-      chatNamespace.to(receiverId).emit('message', { senderId, message });
+      // Deliver to the recipient's connected devices
+      chatNamespace.to(`user:${receiverId}`).emit("message", savedMessage);
+
+      // Deliver to the sender's other connected devices
+      chatNamespace.to(`user:${senderId}`).emit("message", savedMessage);
+
     } catch (err) {
-      console.error('Error saving message:', err);
+      console.error("Error saving message:", err);
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  socket.on("disconnect", () => {
+    console.log(`User ${senderId} disconnected`);
   });
 });
