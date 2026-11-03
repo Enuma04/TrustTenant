@@ -7,13 +7,6 @@ document.addEventListener("DOMContentLoaded", function() {
         };
     }
 
-    // Signout button redirection
-    const signoutBtn = document.querySelector(".signout-btn");
-    if (signoutBtn) {
-        signoutBtn.onclick = function() {
-            window.location.href = "/logout";
-        };
-    }
 
     // Phone number formatting
     const phoneInput = document.getElementById('phone');
@@ -238,6 +231,73 @@ if (searchButton && searchBar && searchResults) {
             });
 
             messageInput.value = "";
+        });
+    }
+
+        // Admin report review validation
+    const reviewForm = document.querySelector(".admin-review-panel form");
+    const notesInput = document.getElementById("adminNotes");
+    const errorMessage = document.getElementById("review-error");
+    const requestInfoBtn = document.getElementById("request-info-btn");
+
+    if (reviewForm && notesInput && errorMessage && requestInfoBtn) {
+
+        function validateNotes() {
+            if (!notesInput.value.trim()) {
+                errorMessage.hidden = false;
+                notesInput.focus();
+                return false;
+            }
+
+            errorMessage.hidden = true;
+            return true;
+        }
+
+        reviewForm.addEventListener("submit", function(event) {
+            const action = event.submitter?.value;
+
+            if ((action === "reject" || action === "request_info") && !validateNotes()) {
+                event.preventDefault();
+            }
+        });
+
+        notesInput.addEventListener("input", function() {
+            if (notesInput.value.trim()) {
+                errorMessage.hidden = true;
+            }
+        });
+
+        requestInfoBtn.addEventListener("click", function() {
+            if (!validateNotes()) return;
+
+            const email = requestInfoBtn.dataset.email;
+            const reportId = requestInfoBtn.dataset.reportId;
+            const firstName = requestInfoBtn.dataset.firstName;
+            const lastName = requestInfoBtn.dataset.lastName;
+
+            if (!email) {
+                errorMessage.textContent = "The submitting landlord's email is unavailable.";
+                errorMessage.hidden = false;
+                return;
+            }
+
+            const subject = `TrustTenant - Additional Information for Report #${reportId}`;
+
+            const body =
+                `Hello,\n\n` +
+                `We need additional information to review your submitted report #${reportId} on your tenant: ${firstName} ${lastName}.\n\n` +
+                `Review notes:\n\n ${notesInput.value.trim()}\n\n\n\n` +
+                `Please reply with the requested information. You may also respond to this email with any inquiries\n\n` +
+                `TrustTenant Administration`;
+
+            const mailto = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            const confirmSection = document.getElementById("confirm-request-section");
+
+            confirmSection.hidden = false;
+
+            window.location.href = mailto;
+
         });
     }
 

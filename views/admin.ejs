@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TrustTenant</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+
+<body class="admin-pg">
+    <%- include("partials/header.ejs") %>
+
+    <main class="admin-cont">
+    <h1>Admin Dashboard</h1>
+
+    <section class="admin-reports">
+        <h2>Pending Reports</h2>
+
+        <% if (reports.length === 0) { %>
+            <p>No reports are awaiting approval.</p>
+        <% } else { %>
+            <div class="report-table-wrapper">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Report ID</th>
+                            <th>Tenant</th>
+                            <th>Submitted By</th>
+                            <th>Property</th>
+                            <th>Submitted On</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <% reports.forEach(report => { %>
+                            <tr>
+                                <td><%= report.report_id %></td>
+                                <td>
+                                    <%= report.tenant_first_name %>
+                                    <%= report.tenant_last_name %>
+                                </td>
+                                <td>
+                                    <%= report.landlord_first_name %>
+                                    <%= report.landlord_last_name %>
+                                </td>
+                                <td><%= report.property_address %></td>
+                                <td>
+                                    <%= new Date(report.created_at).toLocaleDateString() %>
+                                </td>
+                                <td><%= report.status || "pending" %></td>
+                                <td>
+                                    <a href="/admin/reports/<%= report.report_id %>" class="admin-view-btn">
+                                        View Details
+                                    </a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+        </section>
+    </main>
+
+    <%- include("partials/footer.ejs") %>
+</body>
+</html>

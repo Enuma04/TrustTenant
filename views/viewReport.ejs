@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Report - TrustTenant</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+
+<body class="view-report-pg">
+    <%- include("partials/header.ejs") %>
+
+    <main class="view-report-cont">
+        <h1>View Report</h1>
+        <h2>My Submitted Reports</h2>
+
+        <% if (reports.length === 0) { %>
+            <p>You haven't submitted any reports yet.</p>
+        <% } else { %>
+            <div class="report-table-wrapper">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th>Property</th>
+                            <th>Payment History</th>
+                            <th>Condition</th>
+                            <th>Status</th>
+                            <th>Review History</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% reports.forEach(report => { %>
+                            <tr>
+                                <td><%= report.tenant_first_name %> <%= report.tenant_last_name %></td>
+                                <td><%= report.property_address %></td>
+                                <td><%= report.payment_history.replaceAll("_", " ") %></td>
+                                <td><%= report.property_condition %></td>
+                                <td>
+                                    <%= report.status.replaceAll("_", " ") %>
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="view-history-btn"
+                                        onclick="document.getElementById('history-<%= report.report_id %>').hidden = !document.getElementById('history-<%= report.report_id %>').hidden">
+                                        View Review History
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="history-<%= report.report_id %>" hidden>
+                                <td colspan="6">
+                                    <% const reportReviews = reviews.filter(
+                                        review => review.report_id === report.report_id
+                                    ); %>
+
+                                    <% if (reportReviews.length === 0) { %>
+                                        <p>No reviews yet.</p>
+                                    <% } else { %>
+                                        <% reportReviews.forEach(review => { %>
+                                            <div class="review-history-entry">
+                                                <strong>
+                                                    <%= review.action === "request_info"
+                                                        ? "Further Information Requested"
+                                                        : review.action === "approve"
+                                                        ? "Approved"
+                                                        : "Rejected" %>
+                                                </strong>
+
+                                                <p>
+                                                    <%= review.first_name %> <%= review.last_name %>
+                                                    — <%= new Date(review.created_at).toLocaleString() %>
+                                                </p>
+
+                                                <p class="review-history-notes">
+                                                    <%= review.notes || "No notes provided." %>
+                                                </p>
+                                            </div>
+                                        <% }) %>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        <% } %>
+    </main>
+
+    <%- include("partials/footer.ejs") %>
+</body>
+</html>

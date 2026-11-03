@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Details - TrustTenant</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+
+<body class="admin-pg">
+    <%- include("partials/header.ejs") %>
+
+    <main class="admin-cont admin-details-cont">
+        <a href="/admin" class="admin-back-btn">
+            ← Back to Dashboard
+        </a>
+        <div class="admin-details-layout">
+
+        <section class="admin-report-info">
+            <h1>Report #<%= report.report_id %></h1>
+            <p><strong>Status:</strong> <%= report.status %></p>
+
+            <h2>Tenant Information</h2>
+            <p><strong>Name:</strong> <%= report.tenant_first_name %> <%= report.tenant_last_name %></p>
+            <p><strong>Property:</strong> <%= report.property_address %></p>
+            <p><strong>Tenancy Start:</strong> <%= new Date(report.tenancy_start).toLocaleDateString() %></p>
+            <p><strong>Tenancy End:</strong>
+                <%= report.tenancy_end ? new Date(report.tenancy_end).toLocaleDateString() : "Ongoing" %>
+            </p>
+
+            <h2>Rental History</h2>
+            <p><strong>Payment History:</strong> <%= report.payment_history.replaceAll("_", " ") %></p>
+            <p><strong>Property Condition:</strong> <%= report.property_condition %></p>
+            <p><strong>Would Rent Again:</strong> <%= report.would_rent_again %></p>
+            <p><strong>Description:</strong> <%= report.description || "No description provided" %></p>
+
+            <h2>Submitted By</h2>
+            <p><%= report.landlord_first_name %> <%= report.landlord_last_name %></p>
+        </section>
+
+        <aside class="admin-review-panel">
+            <h2>Admin Review</h2>
+            <section class="admin-review-history">
+            <h3>Review History</h3>
+
+            <% if (reviews.length === 0) { %>
+                <p>No previous reviews.</p>
+            <% } else { %>
+                <% reviews.forEach(review => { %>
+                    <div class="review-history-entry">
+                        <strong>
+                            <%= review.action === "request_info"
+                                ? "Further Information Requested"
+                                : review.action === "approve"
+                                ? "Approved"
+                                : "Rejected" %>
+                        </strong>
+
+                        <p>
+                            <%= review.first_name %> <%= review.last_name %>
+                            — <%= new Date(review.created_at).toLocaleString() %>
+                        </p>
+
+                        <p class="review-history-notes">
+                            <%= review.notes || "No notes provided." %>
+                        </p>
+                    </div>
+                <% }) %>
+            <% } %>
+</section>
+            <form action="/admin/reports/<%= report.report_id %>/review"
+                  method="POST">
+
+                <label for="adminNotes">Review Notes</label>
+
+                <textarea
+                    id="adminNotes"
+                    name="adminNotes"
+                    maxlength="2000"
+                    placeholder="Enter review notes or explain what evidence is needed..."
+                ></textarea>
+                
+                <p id="review-error" class="review-error" hidden>
+                    Please enter review notes before requesting information or rejecting a report.
+                </p>
+                <button
+                    type="button"
+                    id="request-info-btn"
+                    class="admin-request-btn"
+                    data-email="<%= report.landlord_email %>"
+                    data-report-id="<%= report.report_id %>"
+                    data-first-name="<%= report.tenant_first_name %>"
+                    data-last-name="<%= report.tenant_last_name %>">
+                    Request Further Information
+                </button>
+                <div id="confirm-request-section" class="confirm-request-section" hidden>
+                    <p>
+                        After sending the email, confirm below to save the request.
+                    </p>
+
+                    <button
+                        type="submit"
+                        name="action"
+                        value="request_info"
+                        id="confirm-request-btn"
+                        class="admin-confirm-btn">
+                        Confirm Request Sent
+                    </button>
+                </div>
+
+                <div class="admin-review-actions">
+                    <button type="submit" name="action" value="approve"
+                            class="admin-approve-btn">
+                        Approve
+                    </button>
+
+                    <button type="submit" name="action" value="reject"
+                            class="admin-reject-btn">
+                        Reject
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+    </div>
+    </main>
+
+    <%- include("partials/footer.ejs") %>
+    <script src="/js/script.js" defer></script>
+</body>
+</html>

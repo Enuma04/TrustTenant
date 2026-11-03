@@ -21,6 +21,9 @@
             <div class="login">
                 <h1>Login to Your Account</h1>
                 <div class="form-group">
+                    <% if (typeof error !== "undefined" && error) { %>
+                        <p class="login-error"><%= error %></p>
+                    <% } %>
                     <form action="/login" method="POST">
                    
                     <input type="email" id="email" class="email-input" name="email" placeholder="  Email ">

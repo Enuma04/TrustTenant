@@ -189,16 +189,59 @@ button:hover, .btn:hover {
   width: 70%;
 }
 
-.landlord-pg{
-  display: grid;
-   padding:2%;
-    grid-template-rows: auto 100% 0fr;
-    width: 100%;
+
+.landlord-pg {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 2%;
 }
 
-.landlord-cont{
-  padding-top: 5%;
+.landlord-cont {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 60px 20px;
 }
+
+.landlord-cont .report {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background-color: rgb(220, 103, 7);
+    color: white;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    text-decoration: none;
+    text-align: center;
+    padding: 20px;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.landlord-cont .report:hover {
+    background-color: rgb(180, 80, 0);
+    transform: translateY(-5px);
+}
+
+@media (max-width: 768px) {
+    .landlord-cont {
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .landlord-cont .report {
+        width: 210px;
+        height: 210px;
+    }
+}
+
 
 .home{
   padding: 2%;
@@ -259,30 +302,6 @@ button:hover, .btn:hover {
 
 .testimonial .txt{
   text-align: center;
-}
-
-.landlord-cont{
-  display: flex;
- 
-  justify-content: space-around;
-  align-items: center;
-  
-}
-.landlord-cont .report{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background-color:  rgb(220, 103, 7);
-  color: #e9e2e2;
-  font-family: "Montserrat", sans-serif;
-  font-optical-sizing: auto;
-  font-weight: 900;
-  font-style: normal;
-  font-size: larger;
-  text-decoration: none;
 }
 
 .tenant-info-pg .footer, .landlord-info-pg .footer, .lawyer-info-pg .footer{
@@ -393,10 +412,386 @@ button:hover, .btn:hover {
 }
 
 #search-bar:focus {
-  width: 200px; /* Expand width on focus */
+  width: 200px; 
 }
 
 .chat-pg button, .chat-pg input {
   padding: 10px;
   font-size: 16px;
+}
+
+
+.submit-report-pg {
+    min-height: 100vh;
+    padding: 2%;
+    background-color: #fafafa;
+}
+
+.submit-report-cont {
+    max-width: 750px;
+    margin: 50px auto;
+    padding: 40px;
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.submit-report-cont h1 {
+    text-align: center;
+    font-weight: 700;
+}
+
+.submit-report-cont > p {
+    text-align: center;
+    color: #666;
+}
+
+.submit-report-cont h2 {
+    margin-top: 30px;
+    margin-bottom: 20px;
+    font-size: 22px;
+    color: rgb(220, 103, 7);
+}
+
+.submit-report-cont label {
+    display: block;
+    margin-top: 15px;
+    font-weight: 600;
+}
+
+.submit-report-cont input,
+.submit-report-cont select,
+.submit-report-cont textarea {
+    display: block;
+    width: 100%;
+    margin: 8px 0 15px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: rgb(239, 245, 245);
+}
+
+.submit-report-cont textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.submit-report-cont .report-notice {
+    margin-top: 25px;
+    font-size: 14px;
+    color: #666;
+}
+
+.submit-report-cont .report-submit-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background-color: rgb(220, 103, 7);
+    color: white;
+    border-radius: 8px;
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .submit-report-cont {
+        margin: 25px auto;
+        padding: 20px;
+    }
+}
+
+.view-report-pg {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 2%;
+}
+
+.view-report-cont {
+    flex: 1;
+    padding: 40px 20px;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.view-report-cont h1,
+.view-report-cont h2 {
+    margin-bottom: 25px;
+}
+
+.report-table-wrapper {
+    overflow-x: auto;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+    padding: 15px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.report-table th {
+    background-color: rgb(220, 103, 7);
+    color: white;
+}
+
+.report-table tr:nth-child(even) {
+    background-color: #f5f5f5;
+}
+
+.login-error {
+    color: #c62828;
+    background-color: #ffebee;
+    padding: 12px;
+    border-radius: 5px;
+    text-align: center;
+    margin: 15px auto;
+}
+
+/* Admin Dashboard */
+
+.admin-pg {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 2%;
+}
+
+.admin-cont {
+    flex: 1;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.admin-cont h1 {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 900;
+    font-size: 36px;
+    margin-bottom: 20px;
+    color: #222;
+}
+
+.admin-cont h2 {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+    margin-top: 40px;
+    margin-bottom: 15px;
+    color: rgb(220, 103, 7);
+}
+
+.admin-cont p {
+    font-size: 16px;
+    line-height: 1.7;
+    color: #555;
+}
+
+@media (max-width: 768px) {
+    .admin-cont {
+        padding: 25px 15px;
+    }
+
+    .admin-cont h1 {
+        font-size: 28px;
+    }
+
+    .admin-cont h2 {
+        font-size: 21px;
+    }
+}
+
+.admin-view-btn {
+    display: inline-block;
+    padding: 10px 16px;
+    background-color: rgb(220, 103, 7);
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-view-btn:hover {
+    background-color: rgb(180, 80, 0);
+    color: white;
+}
+
+.admin-back-btn {
+    display: inline-block;
+    padding: 12px 20px;
+    background-color: rgb(220, 103, 7);
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600;
+    margin-bottom: 25px;
+    transition: background-color 0.3s ease;
+}
+
+.admin-back-btn:hover {
+    background-color: rgb(180, 80, 0);
+    color: white;
+}
+
+/* Admin Report Details Layout */
+
+.admin-details-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+    gap: 50px;
+    align-items: start;
+}
+
+.admin-report-info {
+    min-width: 0;
+}
+
+.admin-review-panel {
+    background-color: #fafafa;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 30px;
+}
+
+.admin-review-panel h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: rgb(220, 103, 7);
+}
+
+.admin-review-panel label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.admin-review-panel textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    resize: vertical;
+    margin-bottom: 20px;
+}
+
+.admin-review-panel button {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-weight: 600;
+}
+
+.admin-request-btn {
+    width: 100%;
+    background-color: rgb(220, 103, 7);
+    margin-bottom: 15px;
+}
+
+.admin-review-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.admin-approve-btn {
+    flex: 1;
+    background-color: #218838;
+}
+
+.admin-reject-btn {
+    flex: 1;
+    background-color: #c62828;
+}
+
+@media (max-width: 850px) {
+    .admin-details-layout {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+}
+
+.admin-details-cont {
+    max-width: 1500px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 60px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 850px) {
+    .admin-details-cont {
+        padding: 25px 20px;
+    }
+}
+
+.admin-review-panel .review-error {
+    color: #c62828;
+    font-size: 14px;
+    margin: -10px 0 15px;
+}
+
+.admin-review-panel .review-error[hidden] {
+    display: none;
+}
+
+.admin-review-panel textarea:focus {
+    outline: 2px solid rgb(220, 103, 7);
+    outline-offset: 1px;
+}
+
+.confirm-request-section {
+    margin: 15px 0 20px;
+    padding: 15px;
+    background-color: #fff5eb;
+    border: 1px solid #f0c49e;
+    border-radius: 8px;
+}
+
+.confirm-request-section[hidden] {
+    display: none;
+}
+
+.confirm-request-section p {
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.admin-confirm-btn {
+    width: 100%;
+    background-color: rgb(220, 103, 7);
+}
+
+.admin-confirm-btn:hover {
+    background-color: rgb(180, 80, 0);
+}
+
+.admin-review-history {
+    margin-bottom: 25px;
+}
+
+.review-history-entry {
+    border-left: 3px solid rgb(220, 103, 7);
+    padding: 10px 15px;
+    margin: 15px 0;
+    background: #fff8f2;
+    border-radius: 4px;
+}
+
+.review-history-entry p {
+    margin: 8px 0 0;
+    font-size: 14px;
+}
+
+.review-history-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }

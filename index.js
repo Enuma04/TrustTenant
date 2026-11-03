@@ -4,8 +4,8 @@ import pg from "pg";
 import { createCanvas, Image } from "canvas"
 import bcrypt from "bcrypt";
 import session from "express-session";
-import { createServer } from 'http'; // Add this line
-import { Server } from 'socket.io';  // Add this line
+import { createServer } from 'http'; 
+import { Server } from 'socket.io';  
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -30,7 +30,7 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false, // Local development only
+    secure: false, 
     sameSite: "lax"
   }
 });
@@ -104,7 +104,9 @@ app.post("/login", async (req, res) => {
 
       res.redirect("/" + user.role);
     }else {
-      res.render("login.ejs", { error: "Invalid email or password" });
+      return res.status(401).render("login.ejs", {
+          error: "Invalid email or password"
+      });
     }
   } catch (err) {
     console.error("Error logging in:", err);
@@ -240,6 +242,153 @@ app.get("/lawyer", requireRole("lawyer"), (req, res) => {
   res.render("lawyer.ejs");
 });
 
+app.get("/admin", requireRole("admin"), async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT
+                tr.report_id,
+                tr.tenant_first_name,
+                tr.tenant_last_name,
+                tr.property_address,
+                tr.payment_history,
+                tr.property_condition,
+                tr.created_at,
+                tr.tenancy_start,
+                tr.tenancy_end,
+                tr.description,
+                tr.would_rent_again,
+                tr.status,
+                u.first_name AS landlord_first_name,
+                u.last_name AS landlord_last_name
+             FROM tenant_reports tr
+             JOIN users u ON tr.landlord_id = u.user_id
+             WHERE tr.status IN ('pending', 'more_info_requested')
+             ORDER BY tr.created_at ASC, tr.report_id ASC`
+        );
+
+        res.render("admin.ejs", {
+            reports: result.rows
+        });
+
+    } catch (err) {
+        console.error("Error loading pending reports:", err);
+        res.status(500).send("Unable to load admin dashboard");
+    }
+});
+
+app.get("/admin/reports/:id", requireRole("admin"), async (req, res) => {
+    const reportId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(reportId) || reportId <= 0) {
+        return res.status(400).send("Invalid report ID");
+    }
+
+    try {
+        const result = await db.query(
+            `SELECT tr.*, u.first_name AS landlord_first_name,
+                    u.last_name AS landlord_last_name,
+                    u.email AS landlord_email
+             FROM tenant_reports tr
+             JOIN users u ON tr.landlord_id = u.user_id
+             WHERE tr.report_id = $1`,
+            [reportId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).send("Report not found");
+        }
+
+        const reviewResult = await db.query(
+            `SELECT
+                rr.action,
+                rr.notes,
+                rr.created_at,
+                u.first_name,
+                u.last_name
+            FROM report_reviews rr
+            JOIN users u ON rr.admin_id = u.user_id
+            WHERE rr.report_id = $1
+            ORDER BY rr.created_at ASC, rr.review_id ASC`,
+            [reportId]
+        );
+        
+        res.render("adminReportDetails.ejs", {
+            report: result.rows[0],
+            reviews: reviewResult.rows
+        });
+
+    } catch (err) {
+        console.error("Error loading report details:", err);
+        res.status(500).send("Unable to load report");
+    }
+});
+
+app.post("/admin/reports/:id/review", requireRole("admin"), async (req, res) => {
+    const reportId = Number(req.params.id);
+    const { action, adminNotes } = req.body;
+
+    if (!Number.isSafeInteger(reportId) || reportId <= 0) {
+        return res.status(400).send("Invalid report ID");
+    }
+
+    const statuses = {
+        request_info: "more_info_requested",
+        approve: "approved",
+        reject: "rejected"
+    };
+
+    if (!Object.hasOwn(statuses, action)) {
+        return res.status(400).send("Invalid review action");
+    }
+
+    if (typeof adminNotes !== "string" || adminNotes.length > 2000) {
+        return res.status(400).send("Invalid review notes");
+    }
+
+    if (action !== "approve" && !adminNotes.trim()) {
+        return res.status(400).send("Review notes are required");
+    }
+
+    
+
+    try {
+        await db.query("BEGIN");
+
+        const result = await db.query(
+            `UPDATE tenant_reports
+            SET status = $1,
+                reviewed_by = $2,
+                reviewed_at = CURRENT_TIMESTAMP
+            WHERE report_id = $3
+              AND status IN ('pending', 'more_info_requested')
+            RETURNING report_id`,
+            [statuses[action], req.session.userId, reportId]
+        );
+
+        if (result.rows.length === 0) {
+            await db.query("ROLLBACK");
+            return res.status(409).send("Report not found or already reviewed");
+        }
+
+        await db.query(
+            `INSERT INTO report_reviews
+                (report_id, admin_id, action, notes)
+            VALUES ($1, $2, $3, $4)`,
+            [reportId, req.session.userId, action, adminNotes.trim() || null]
+        );
+
+        await db.query("COMMIT");
+
+        res.redirect("/admin");
+
+    } catch (err) {
+        await db.query("ROLLBACK");
+        console.error("Error reviewing report:", err);
+        res.status(500).send("Unable to review report");
+
+    }
+});
+
 app.get("/message", requireAuth, async (req, res) => {
   const senderId = req.session.userId;
   const receiverId = parseInt(req.query.user_id, 10);
@@ -330,19 +479,150 @@ app.get("/chat", requireAuth, async (req, res) => {
 }
 })
 
-app.get("/submitReport", (req, res) => {
-  res.render("submitReport.ejs");
-})
-
-
-app.get("/logout", (req, res) => {
-  // Clear the session or any authentication data
-  // req.session.destroy(); // Example if using express-session
-  req.session.destroy();
-  res.setHeader('Cache-Control', 'no-store');
-  res.redirect("/login");
+app.get("/submitReport", requireRole("landlord"), (req, res) => {
+    res.render("submitReport.ejs");
 });
 
+
+app.post("/submitReport", requireRole("landlord"), async (req, res) => {
+    const landlordId = req.session.userId;
+
+    const {
+        firstName,
+        lastName,
+        propertyAddress,
+        tenancyStart,
+        tenancyEnd,
+        paymentHistory,
+        propertyCondition,
+        description,
+        wouldRentAgain
+    } = req.body;
+
+    const validPayments = ["on_time", "occasionally_late", "frequently_late"];
+    const validConditions = ["good", "fair", "poor"];
+    const validRentAgain = ["yes", "no", "unsure"];
+
+    const start = new Date(tenancyStart);
+    const end = tenancyEnd ? new Date(tenancyEnd) : null;
+
+    if (
+        typeof firstName !== "string" || !firstName.trim() ||
+        firstName.trim().length > 100 ||
+        typeof lastName !== "string" || !lastName.trim() ||
+        lastName.trim().length > 100 ||
+        typeof propertyAddress !== "string" || !propertyAddress.trim() ||
+        propertyAddress.length > 500 ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(tenancyStart || "") ||
+        Number.isNaN(start.getTime()) ||
+        (tenancyEnd && (
+            !/^\d{4}-\d{2}-\d{2}$/.test(tenancyEnd) ||
+            Number.isNaN(end.getTime()) ||
+            end < start
+        )) ||
+        !validPayments.includes(paymentHistory) ||
+        !validConditions.includes(propertyCondition) ||
+        !validRentAgain.includes(wouldRentAgain) ||
+        (description != null && (
+            typeof description !== "string" ||
+            description.length > 2000
+        ))
+    ) {
+        return res.status(400).send("Invalid report information");
+    }
+
+    try {
+        await db.query(
+            `INSERT INTO tenant_reports (
+                landlord_id,
+                tenant_first_name,
+                tenant_last_name,
+                property_address,
+                tenancy_start,
+                tenancy_end,
+                payment_history,
+                property_condition,
+                description,
+                would_rent_again
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+                landlordId,
+                firstName.trim(),
+                lastName.trim(),
+                propertyAddress.trim(),
+                tenancyStart,
+                tenancyEnd || null,
+                paymentHistory,
+                propertyCondition,
+                description?.trim() || null,
+                wouldRentAgain
+            ]
+        );
+
+        res.redirect("/landlord");
+
+    } catch (err) {
+        console.error("Error submitting report:", err);
+        res.status(500).send("Unable to submit report");
+    }
+});
+
+
+app.post("/logout", requireAuth, (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error("Logout error:", err);
+            return res.status(500).send("Unable to log out");
+        }
+
+        res.clearCookie("connect.sid", {
+            path: "/"
+        });
+
+        res.setHeader("Cache-Control", "no-store");
+        res.redirect("/login");
+    });
+});
+
+app.get("/viewReport", requireRole("landlord"), async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT report_id, tenant_first_name, tenant_last_name,
+                    property_address, tenancy_start, tenancy_end,
+                    payment_history, property_condition,
+                    description, would_rent_again, status, created_at
+             FROM tenant_reports
+             WHERE landlord_id = $1
+             ORDER BY created_at DESC, report_id DESC`,
+            [req.session.userId]
+        );
+        const reviewsResult = await db.query(
+            `SELECT
+                rr.report_id,
+                rr.action,
+                rr.notes,
+                rr.created_at,
+                u.first_name,
+                u.last_name
+            FROM report_reviews rr
+            JOIN tenant_reports tr ON rr.report_id = tr.report_id
+            JOIN users u ON rr.admin_id = u.user_id
+            WHERE tr.landlord_id = $1
+            ORDER BY rr.created_at ASC, rr.review_id ASC`,
+            [req.session.userId]
+        );
+
+        res.render("viewReport.ejs", {
+            reports: result.rows,
+            reviews: reviewsResult.rows
+        });
+
+    } catch (err) {
+        console.error("Error loading reports:", err);
+        res.status(500).send("Unable to load reports");
+    }
+});
 
 const server = app.listen(port, () => {
 
