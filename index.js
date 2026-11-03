@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 const db = new pg.Client({
   user: process.env.DB_USER,
@@ -446,38 +446,82 @@ app.get("/api/users/search", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Search failed" });
   }
 });
+
 app.get("/chat", requireAuth, async (req, res) => {
-  const senderId = req.session.userId;
+    const senderId = req.session.userId;
+    const receiverId = req.query.user_id
+        ? Number(req.query.user_id)
+        : null;
 
-  try {
-    const result = await db.query(`
-      SELECT DISTINCT 
-          CASE 
-              WHEN sender_id = $1 THEN receiver_id 
-              ELSE sender_id 
-          END AS user_id
-      FROM messages
-      WHERE sender_id = $1 OR receiver_id = $1
-  `, [senderId]);
+    if (receiverId !== null &&
+        (!Number.isSafeInteger(receiverId) || receiverId <= 0 || receiverId === senderId)) {
+        return res.status(400).send("Invalid receiver");
+    }
 
-  // Extract the list of user IDs
-  const userIds = result.rows.map(row => row.user_id);
-  console.log("userIds:", userIds)
+    try {
+        // Get users with existing conversations
+        const usersResult = await db.query(
+            `SELECT u.user_id, u.first_name, u.last_name
+             FROM users u
+             WHERE u.user_id IN (
+                 SELECT
+                     CASE
+                         WHEN sender_id = $1 THEN receiver_id
+                         ELSE sender_id
+                     END
+                 FROM messages
+                 WHERE sender_id = $1 OR receiver_id = $1
+             )
+             ORDER BY u.first_name, u.last_name`,
+            [senderId]
+        );
 
-  // Query to get user details for the retrieved user IDs
-  const usersResult = await db.query(`
-      SELECT user_id, first_name FROM users
-      WHERE user_id = ANY($1::int[])
-  `, [userIds]);
+        const users = usersResult.rows;
 
-  const users = usersResult.rows;
-  
-    res.render('chat.ejs', { users });
-} catch (err) {
-    console.error('Error fetching chats:', err);
-    res.status(500).send('Error fetching chats');
-}
-})
+        let messages = [];
+        let selectedUser = null;
+
+        if (receiverId !== null) {
+            const selectedResult = await db.query(
+                `SELECT user_id, first_name, last_name
+                 FROM users
+                 WHERE user_id = $1`,
+                [receiverId]
+            );
+
+            if (selectedResult.rows.length === 0) {
+                return res.status(404).send("User not found");
+            }
+
+            selectedUser = selectedResult.rows[0];
+
+            const messagesResult = await db.query(
+                `SELECT message_id, sender_id, receiver_id,
+                        content, created_at
+                 FROM messages
+                 WHERE (sender_id = $1 AND receiver_id = $2)
+                    OR (sender_id = $2 AND receiver_id = $1)
+                 ORDER BY created_at ASC, message_id ASC`,
+                [senderId, receiverId]
+            );
+
+            messages = messagesResult.rows;
+        }
+
+        res.render("chat.ejs", {
+            users,
+            senderId,
+            receiverId,
+            selectedUser,
+            messages
+        });
+
+    } catch (err) {
+        console.error("Error loading chats:", err);
+        res.status(500).send("Unable to load chats");
+    }
+});
+
 
 app.get("/submitReport", requireRole("landlord"), (req, res) => {
     res.render("submitReport.ejs");
@@ -568,6 +612,102 @@ app.post("/submitReport", requireRole("landlord"), async (req, res) => {
     }
 });
 
+app.get("/requestReport", requireRole("landlord"), async (req, res) => {
+    const tenantName = String(req.query.tenantName || "").trim();
+    let reports = [];
+
+    if (tenantName) {
+        if (tenantName.length > 200) {
+            return res.status(400).send("Tenant name is too long");
+        }
+
+        try {
+            const result = await db.query(
+                `SELECT
+                    report_id,
+                    tenant_first_name,
+                    tenant_last_name,
+                    property_address,
+                    payment_history,
+                    property_condition,
+                    status
+                 FROM tenant_reports
+                 WHERE status = 'approved'
+                   AND LOWER(
+                       CONCAT_WS(' ', tenant_first_name, tenant_last_name)
+                   ) = LOWER($1)
+                 ORDER BY created_at DESC`,
+                [tenantName.replace(/\s+/g, " ")]
+            );
+
+            reports = result.rows;
+
+        } catch (err) {
+            console.error("Error searching reports:", err);
+            return res.status(500).send("Unable to search reports");
+        }
+    }
+
+    res.render("requestReport.ejs", {
+        reports,
+        tenantName
+    });
+});
+
+app.get("/requestReport/:id", requireRole("landlord"), async (req, res) => {
+    const reportId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(reportId) || reportId <= 0) {
+        return res.status(400).send("Invalid report ID");
+    }
+
+    try {
+        const result = await db.query(
+            `SELECT
+                report_id,
+                tenant_first_name,
+                tenant_last_name,
+                property_address,
+                tenancy_start,
+                tenancy_end,
+                payment_history,
+                property_condition,
+                description,
+                would_rent_again,
+                created_at
+             FROM tenant_reports
+             WHERE report_id = $1
+               AND status = 'approved'`,
+            [reportId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).send("Approved report not found");
+        }
+
+        res.render("requestedReportDetails.ejs", {
+            report: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("Error loading approved report:", err);
+        res.status(500).send("Unable to load report");
+    }
+});
+
+app.get("/dashboard", requireAuth, (req, res) => {
+    const allowedRoles = ["tenant", "landlord", "lawyer", "admin"];
+
+    if (!allowedRoles.includes(req.session.role)) {
+        return res.status(403).send("Invalid user role");
+    }
+
+    res.redirect(`/${req.session.role}`);
+});
+
+app.get("/pricing", (req, res) => {
+    res.render("pricing.ejs");
+});
 
 app.post("/logout", requireAuth, (req, res) => {
     req.session.destroy((err) => {

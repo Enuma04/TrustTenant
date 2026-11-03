@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Details - TrustTenant</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+
+<body class="request-report-pg">
+    <%- include("partials/header.ejs") %>
+
+    <main class="request-report-cont">
+        <a href="/requestReport" class="report-back-btn">
+            ← Back to Search
+        </a>
+
+        <h1>Tenant Report Details</h1>
+
+        <p><strong>Tenant:</strong>
+            <%= report.tenant_first_name %> <%= report.tenant_last_name %>
+        </p>
+
+        <p><strong>Property:</strong> <%= report.property_address %></p>
+
+        <p><strong>Tenancy Start:</strong>
+            <%= new Date(report.tenancy_start).toLocaleDateString() %>
+        </p>
+
+        <p><strong>Tenancy End:</strong>
+            <%= report.tenancy_end
+                ? new Date(report.tenancy_end).toLocaleDateString()
+                : "Ongoing" %>
+        </p>
+
+        <p><strong>Payment History:</strong>
+            <%= report.payment_history.replaceAll("_", " ") %>
+        </p>
+
+        <p><strong>Property Condition:</strong>
+            <%= report.property_condition %>
+        </p>
+
+        <p><strong>Would Rent Again:</strong>
+            <%= report.would_rent_again %>
+        </p>
+
+        <h2>Landlord's Comments</h2>
+        <p><%= report.description || "No additional comments provided." %></p>
+    </main>
+
+    <%- include("partials/footer.ejs") %>
+</body>
+</html>

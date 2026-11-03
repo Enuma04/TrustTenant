@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Report - TrustTenant</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+
+<body class="request-report-pg">
+    <%- include("partials/header.ejs") %>
+
+    <main class="request-report-cont">
+        <h1>Request Report</h1>
+
+        <p>Search for approved tenant reports.</p>
+
+        <form action="/requestReport" method="GET" class="request-report-form">
+            <label for="tenantName">Tenant Name</label>
+
+            <input
+                type="text"
+                id="tenantName"
+                name="tenantName"
+                placeholder="Enter tenant's name"
+                required
+            >
+
+            <button type="submit">Search Reports</button>
+        </form>
+        <% if (tenantName) { %>
+            <section class="request-report-results">
+                <h2>Search Results</h2>
+
+                <% if (reports.length === 0) { %>
+                    <p>No approved reports found for "<%= tenantName %>".</p>
+                <% } else { %>
+                    <div class="report-table-wrapper">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Tenant</th>
+                                    <th>Property</th>
+                                    <th>Payment History</th>
+                                    <th>Condition</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <% reports.forEach(report => { %>
+                                    <tr>
+                                        <td>
+                                            <%= report.tenant_first_name %>
+                                            <%= report.tenant_last_name %>
+                                        </td>
+                                        <td><%= report.property_address %></td>
+                                        <td><%= report.payment_history.replaceAll("_", " ") %></td>
+                                        <td><%= report.property_condition %></td>
+                                        <td>
+                                            <a href="/requestReport/<%= report.report_id %>" class="view-history-btn">
+                                                View Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </section>
+        <% } %>
+    </main>
+
+    <%- include("partials/footer.ejs") %>
+</body>
+</html>

@@ -43,7 +43,7 @@
                                     <button
                                         type="button"
                                         class="view-history-btn"
-                                        onclick="document.getElementById('history-<%= report.report_id %>').hidden = !document.getElementById('history-<%= report.report_id %>').hidden">
+                                        data-report-id="<%= report.report_id %>">
                                         View Review History
                                     </button>
                                 </td>

@@ -117,7 +117,7 @@ if (searchButton && searchBar && searchResults) {
 
             users.forEach(user => {
                 const link = document.createElement("a");
-                link.href = `/message?user_id=${user.user_id}`;
+                link.href = `/chat?user_id=${user.user_id}`;
                 link.textContent = `${user.first_name} ${user.last_name}`;
                 link.className = "user-link d-block p-2";
 
@@ -300,6 +300,24 @@ if (searchButton && searchBar && searchResults) {
 
         });
     }
+
+        // Toggle landlord report review history
+    const historyButtons = document.querySelectorAll(".view-history-btn");
+
+    historyButtons.forEach(button => {
+        button.addEventListener("click", function() {
+            const reportId = button.dataset.reportId;
+            const historyRow = document.getElementById(`history-${reportId}`);
+
+            if (!historyRow) return;
+
+            historyRow.hidden = !historyRow.hidden;
+
+            button.textContent = historyRow.hidden
+                ? "View Review History"
+                : "Hide Review History";
+        });
+    });
 
 
 });
