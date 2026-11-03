@@ -7,32 +7,46 @@ import session from "express-session";
 import { createServer } from 'http'; 
 import { Server } from 'socket.io';  
 import dotenv from 'dotenv';
+import connectPgSimple from "connect-pg-simple";
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-const db = new pg.Client({
+const db = new pg.Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  port: Number(process.env.DB_PORT) || 5432,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000
 });
 
+db.on("error", (err) => {
+  console.error("Unexpected database connection error:", err);
+});
 
+const PgSession = connectPgSimple(session);
 
-db.connect();
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
 
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: false, 
-    sameSite: "lax"
-  }
+    store: new PgSession({
+        pool: db,
+        createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax"
+    }
 });
 
 app.use(sessionMiddleware);
@@ -351,42 +365,62 @@ app.post("/admin/reports/:id/review", requireRole("admin"), async (req, res) => 
 
     
 
-    try {
-        await db.query("BEGIN");
+    
+    let client;
 
-        const result = await db.query(
+    try {
+        client = await db.connect();
+
+        await client.query("BEGIN");
+
+        const result = await client.query(
             `UPDATE tenant_reports
-            SET status = $1,
-                reviewed_by = $2,
-                reviewed_at = CURRENT_TIMESTAMP
-            WHERE report_id = $3
-              AND status IN ('pending', 'more_info_requested')
-            RETURNING report_id`,
+             SET status = $1,
+                 reviewed_by = $2,
+                 reviewed_at = CURRENT_TIMESTAMP
+             WHERE report_id = $3
+               AND status IN ('pending', 'more_info_requested')
+             RETURNING report_id`,
             [statuses[action], req.session.userId, reportId]
         );
 
         if (result.rows.length === 0) {
-            await db.query("ROLLBACK");
-            return res.status(409).send("Report not found or already reviewed");
+            await client.query("ROLLBACK");
+            return res.status(409).send(
+                "Report not found or already reviewed"
+            );
         }
 
-        await db.query(
+        await client.query(
             `INSERT INTO report_reviews
                 (report_id, admin_id, action, notes)
-            VALUES ($1, $2, $3, $4)`,
-            [reportId, req.session.userId, action, adminNotes.trim() || null]
+             VALUES ($1, $2, $3, $4)`,
+            [
+                reportId,
+                req.session.userId,
+                action,
+                adminNotes.trim() || null
+            ]
         );
 
-        await db.query("COMMIT");
+        await client.query("COMMIT");
 
         res.redirect("/admin");
 
     } catch (err) {
-        await db.query("ROLLBACK");
+        if (client) {
+            await client.query("ROLLBACK").catch(console.error);
+        }
+
         console.error("Error reviewing report:", err);
         res.status(500).send("Unable to review report");
 
+    } finally {
+        if (client) {
+            client.release();
+        }
     }
+
 });
 
 app.get("/message", requireAuth, async (req, res) => {
