@@ -1096,6 +1096,10 @@ app.post("/logout", requireAuth, (req, res) => {
     });
 });
 
+app.get("/faq", (req, res) => {
+    res.render("faq.ejs");
+});
+
 app.get("/viewReport", requireRole("landlord"), async (req, res) => {
     try {
         const result = await db.query(
