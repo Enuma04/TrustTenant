@@ -195,6 +195,8 @@ button:hover, .btn:hover {
     flex-direction: column;
     min-height: 100vh;
     padding: 2%;
+    background-color: #FFF8ED;
+    color: #212529;
 }
 
 .landlord-cont {
@@ -214,8 +216,8 @@ button:hover, .btn:hover {
     width: 260px;
     height: 260px;
     border-radius: 50%;
-    background-color: rgb(220, 103, 7);
-    color: white;
+    background-color: #FFA500;
+    color: #212529;
     font-family: "Montserrat", sans-serif;
     font-weight: 900;
     font-size: 20px;
@@ -803,20 +805,28 @@ button:hover, .btn:hover {
 
 /* Admin Dashboard */
 
+
 .admin-pg {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     padding: 2%;
+    background-color: #FFF8ED;
+    color: #212529;
 }
 
 .admin-cont {
     flex: 1;
     width: 100%;
     max-width: 1100px;
-    margin: 0 auto;
-    padding: 40px 20px;
+    margin: 30px auto;
+    padding: 40px;
+    background-color: #FFFFFF;
+    border: 1px solid #E9ECEF;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
 }
+
 
 .admin-cont h1 {
     font-family: "Montserrat", sans-serif;
@@ -1220,6 +1230,38 @@ button:hover, .btn:hover {
 
     .chat-main {
         min-height: 450px;
+    }
+}
+
+
+/* Admin dashboard theme */
+
+.admin-cont h2 {
+    color: #D96C00;
+}
+
+.admin-pg .admin-view-btn,
+.admin-pg .admin-back-btn {
+    background-color: #FFA500;
+    color: #212529;
+    border-radius: 8px;
+}
+
+.admin-pg .admin-view-btn:hover,
+.admin-pg .admin-back-btn:hover {
+    background-color: #E69500;
+    color: #212529;
+}
+
+.admin-pg .report-table th {
+    background-color: #FFA500;
+    color: #212529;
+}
+
+@media (max-width: 768px) {
+    .admin-cont {
+        margin: 15px auto;
+        padding: 24px 18px;
     }
 }
 

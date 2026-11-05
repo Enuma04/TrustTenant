@@ -1,0 +1,334 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings | TrustTenant</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/main.css">
+
+    <style>
+        body {
+            display: block;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #FFF8ED;
+            color: #212529;
+        }
+
+        .settings-container {
+            width: 100%;
+            max-width: 780px;
+            margin: 55px auto;
+            padding: 0 20px;
+        }
+
+        .settings-card {
+            background: #FFFFFF;
+            border: 1px solid #E9ECEF;
+            border-radius: 18px;
+            padding: 40px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .settings-title {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .settings-description {
+            color: #777;
+            font-size: 15px;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 22px;
+        }
+
+        .settings-card label {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .settings-card .form-control {
+            display: block;
+            width: 100%;
+            height: 46px;
+            margin: 0;
+            padding: 10px 12px;
+            border: 1px solid #DADDE1;
+            border-radius: 8px;
+            background-color: #FFFFFF;
+        }
+
+        .settings-card .form-control:focus {
+            border-color: #FFA500;
+            box-shadow: 0 0 0 3px rgba(255, 165, 0, 0.15);
+        }
+
+        .btn-orange {
+            background-color: #FFA500;
+            color: #212529;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+
+        .btn-orange:hover {
+            background-color: #E69500;
+            color: #212529;
+        }
+
+        .settings-divider {
+            border-color: #E9ECEF;
+            opacity: 1;
+            margin: 30px 0;
+        }
+
+        @media (max-width: 576px) {
+            .settings-container {
+                margin: 25px auto;
+                padding: 0 12px;
+            }
+
+            .settings-card {
+                padding: 24px;
+            }
+
+            .settings-title {
+                font-size: 24px;
+            }
+        }
+
+        
+        .settings-alert {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 22px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .settings-alert-error {
+            background-color: #FFF1F0;
+            border: 1px solid #F5C2C0;
+            color: #A52A2A;
+        }
+
+        .settings-alert-success {
+            background-color: #EDF8F0;
+            border: 1px solid #B7DEC1;
+            color: #216E39;
+        }
+
+    </style>
+</head>
+
+<body>
+    <main class="settings-container">
+        <div class="settings-card">
+
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                <h1 class="settings-title mb-0">Account Settings</h1>
+                <a href="/profile" class="btn btn-outline-secondary btn-sm">
+                    Back to Profile
+                </a>
+            </div>
+
+            <p class="settings-description">
+                Manage your personal information and account details.
+            </p>
+
+            <hr class="settings-divider">
+
+            <h2 class="section-title">Personal Information</h2>
+           
+            <% if (typeof profileError !== "undefined" && profileError) { %>
+                <div class="settings-alert settings-alert-error" role="alert">
+                    <%= profileError %>
+                </div>
+            <% } %>
+
+            <% if (typeof profileSuccess !== "undefined" && profileSuccess) { %>
+                <div class="settings-alert settings-alert-success" role="status">
+                    <%= profileSuccess %>
+                </div>
+            <% } %>
+
+
+            <form action="/settings" method="POST">
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="first_name">First Name</label>
+                        <input
+                            type="text"
+                            id="first_name"
+                            name="first_name"
+                            class="form-control"
+                            value="<%= user.first_name %>"
+                            maxlength="100"
+                            required
+                        >
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="last_name">Last Name</label>
+                        <input
+                            type="text"
+                            id="last_name"
+                            name="last_name"
+                            class="form-control"
+                            value="<%= user.last_name %>"
+                            maxlength="100"
+                            required
+                        >
+                    </div>
+
+                    <div class="col-12">
+                        <label for="email">Email Address</label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="form-control"
+                            value="<%= user.email %>"
+                            required
+                        >
+                    </div>
+
+                    <div class="col-12">
+                        <label for="current_password">
+                            Current Password
+                        </label>
+                        <input
+                            type="password"
+                            id="current_password"
+                            name="current_password"
+                            class="form-control"
+                            autocomplete="current-password"
+                        >
+                        <small class="text-muted">
+                            Only required when changing your email address.
+                        </small>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="phone_number">Phone Number</label>
+                        <input
+                            type="tel"
+                            id="phone_number"
+                            name="phone_number"
+                            class="form-control"
+                            value="<%= user.phone_number || '' %>"
+                            maxlength="30"
+                        >
+                    </div>
+
+                    <% if (user.role === "landlord") { %>
+                        <div class="col-12">
+                            <label for="company_name">Company Name</label>
+                            <input
+                                type="text"
+                                id="company_name"
+                                name="company_name"
+                                class="form-control"
+                                value="<%= user.company_name || '' %>"
+                                maxlength="255"
+                            >
+                        </div>
+                    <% } %>
+                </div>
+
+                <hr class="settings-divider">
+
+                <div class="d-flex flex-wrap gap-3">
+                    <button type="submit" class="btn btn-orange">
+                        Save Changes
+                    </button>
+
+                    <a href="/profile" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+
+            <hr class="settings-divider">
+
+            <h2 class="section-title">Change Password</h2>
+            
+            <% if (typeof passwordError !== "undefined" && passwordError) { %>
+                <div class="settings-alert settings-alert-error" role="alert">
+                    <%= passwordError %>
+                </div>
+            <% } %>
+
+            <% if (typeof passwordSuccess !== "undefined" && passwordSuccess) { %>
+                <div class="settings-alert settings-alert-success" role="status">
+                    <%= passwordSuccess %>
+                </div>
+            <% } %>
+
+            <p class="text-muted mb-4">
+                Update your password to keep your account secure.
+            </p>
+
+            <form action="/settings/password" method="POST">
+
+                <div class="mb-3">
+                    <label for="password_current">Current Password</label>
+                    <input
+                        type="password"
+                        id="password_current"
+                        name="current_password"
+                        class="form-control"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <div class="mb-3">
+                    <label for="new_password">New Password</label>
+                    <input
+                        type="password"
+                        id="new_password"
+                        name="new_password"
+                        class="form-control"
+                        autocomplete="new-password"
+                        minlength="1"
+                        maxlength="72"
+                        required
+                    >
+                </div>
+
+                <div class="mb-4">
+                    <label for="confirm_password">Confirm New Password</label>
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        class="form-control"
+                        autocomplete="new-password"
+                        minlength="1"
+                        maxlength="72"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-orange">
+                    Change Password
+                </button>
+
+            </form>
+
+
+        </div>
+    </main>
+</body>
+</html>

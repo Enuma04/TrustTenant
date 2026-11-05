@@ -739,6 +739,343 @@ app.get("/dashboard", requireAuth, (req, res) => {
     res.redirect(`/${req.session.role}`);
 });
 
+app.get("/profile", requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT
+                u.first_name,
+                u.last_name,
+                u.email,
+                u.phone_number,
+                u.role,
+                u.created_at,
+                l.company_name
+             FROM users u
+             LEFT JOIN landlords l ON u.user_id = l.user_id
+             WHERE u.user_id = $1`,
+            [req.session.userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).send("User not found");
+        }
+
+        res.render("profile.ejs", {
+            user: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("Error loading profile:", err);
+        res.status(500).send("Unable to load profile");
+    }
+});
+
+
+app.get("/settings", requireAuth, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT u.first_name, u.last_name, u.email,
+                    u.phone_number, u.role, l.company_name
+             FROM users u
+             LEFT JOIN landlords l ON u.user_id = l.user_id
+             WHERE u.user_id = $1`,
+            [req.session.userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).send("User not found");
+        }
+
+
+
+        const profileError = req.session.profileError || null;
+        const profileSuccess = req.session.profileSuccess || null;
+        const passwordError = req.session.passwordError || null;
+        const passwordSuccess = req.session.passwordSuccess || null;
+
+        delete req.session.profileError;
+        delete req.session.profileSuccess;
+        delete req.session.passwordError;
+        delete req.session.passwordSuccess;
+
+        res.render("settings.ejs", {
+            user: result.rows[0],
+            profileError,
+            profileSuccess,
+            passwordError,
+            passwordSuccess
+        });
+
+
+    } catch (err) {
+        console.error("Error loading settings:", err);
+        res.status(500).send("Unable to load settings");
+    }
+});
+
+
+
+app.post("/settings", requireAuth, async (req, res) => {
+    const {
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        company_name,
+        current_password
+    } = req.body;
+
+    const showError = (message) => {
+        req.session.profileError = message;
+        return res.redirect("/settings");
+    };
+
+    if (
+        typeof first_name !== "string" ||
+        typeof last_name !== "string" ||
+        typeof email !== "string" ||
+        (phone_number != null && typeof phone_number !== "string") ||
+        (company_name != null && typeof company_name !== "string")
+    ) {
+        return showError("Please enter valid account information.");
+    }
+
+    const firstName = first_name.trim();
+    const lastName = last_name.trim();
+    const newEmail = email.trim().toLowerCase();
+    const phone = (phone_number || "").trim();
+    const company = (company_name || "").trim();
+
+    if (!firstName || !lastName || !newEmail) {
+        return showError("First name, last name, and email are required.");
+    }
+
+    if (
+        firstName.length > 100 ||
+        lastName.length > 100 ||
+        newEmail.length > 255 ||
+        phone.length > 30 ||
+        company.length > 255
+    ) {
+        return showError("One or more fields exceed the allowed length.");
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        return showError("Please enter a valid email address.");
+    }
+
+    let client;
+    let transactionStarted = false;
+
+    try {
+        client = await db.connect();
+        await client.query("BEGIN");
+        transactionStarted = true;
+
+        const result = await client.query(
+            `SELECT user_id, email, password, role
+             FROM users
+             WHERE user_id = $1
+             FOR UPDATE`,
+            [req.session.userId]
+        );
+
+        if (result.rows.length === 0) {
+            await client.query("ROLLBACK");
+            transactionStarted = false;
+            return showError("Account not found.");
+        }
+
+        const user = result.rows[0];
+
+        const emailChanged =
+            newEmail !== user.email.toLowerCase();
+
+        if (emailChanged) {
+            const passwordValid =
+                typeof current_password === "string" &&
+                await bcrypt.compare(
+                    current_password,
+                    user.password
+                );
+
+            if (!passwordValid) {
+                await client.query("ROLLBACK");
+                transactionStarted = false;
+
+                return showError(
+                    "Enter your correct current password to change your email."
+                );
+            }
+        }
+
+        await client.query(
+            `UPDATE users
+             SET first_name = $1,
+                 last_name = $2,
+                 email = $3,
+                 phone_number = $4,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = $5`,
+            [
+                firstName,
+                lastName,
+                newEmail,
+                phone || null,
+                req.session.userId
+            ]
+        );
+
+        if (user.role === "landlord") {
+            await client.query(
+                `UPDATE landlords
+                 SET company_name = $1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE user_id = $2`,
+                [company || null, req.session.userId]
+            );
+        }
+
+        await client.query("COMMIT");
+        transactionStarted = false;
+
+        req.session.profileSuccess =
+            "Your account information has been updated successfully.";
+
+        return res.redirect("/settings");
+
+    } catch (err) {
+        if (client && transactionStarted) {
+            await client.query("ROLLBACK").catch(console.error);
+        }
+
+        if (err.code === "23505") {
+            return showError(
+                "This email address is already registered to another account."
+            );
+        }
+
+        console.error("Error updating settings:", err);
+
+        return showError(
+            "Unable to update your information. Please try again."
+        );
+
+    } finally {
+        if (client) client.release();
+    }
+});
+
+
+app.post("/settings/password", requireAuth, async (req, res) => {
+    const {
+        current_password,
+        new_password,
+        confirm_password
+    } = req.body;
+
+    const showError = (message) => {
+        req.session.passwordError = message;
+        return res.redirect("/settings");
+    };
+
+    if (
+        typeof current_password !== "string" ||
+        typeof new_password !== "string" ||
+        typeof confirm_password !== "string"
+    ) {
+        return showError("Please complete all password fields.");
+    }
+
+    if (new_password !== confirm_password) {
+        return showError("New passwords do not match.");
+    }
+
+    if (
+        new_password.length < 1 ||
+        Buffer.byteLength(new_password, "utf8") > 72
+    ) {
+        return showError(
+            "Use a password with at least 1 character."
+        );
+    }
+
+    let client;
+    let transactionStarted = false;
+
+    try {
+        client = await db.connect();
+        await client.query("BEGIN");
+        transactionStarted = true;
+
+        const result = await client.query(
+            `SELECT password FROM users
+             WHERE user_id = $1
+             FOR UPDATE`,
+            [req.session.userId]
+        );
+
+        if (result.rows.length === 0) {
+            await client.query("ROLLBACK");
+            transactionStarted = false;
+            return showError("Account not found.");
+        }
+
+        const oldHash = result.rows[0].password;
+
+        const passwordValid = await bcrypt.compare(
+            current_password,
+            oldHash
+        );
+
+        if (!passwordValid) {
+            await client.query("ROLLBACK");
+            transactionStarted = false;
+            return showError("Your current password is incorrect.");
+        }
+
+        const samePassword = await bcrypt.compare(
+            new_password,
+            oldHash
+        );
+
+        if (samePassword) {
+            await client.query("ROLLBACK");
+            transactionStarted = false;
+            return showError(
+                "Your new password must be different from your current password."
+            );
+        }
+
+        const hashedPassword = await bcrypt.hash(new_password, 12);
+
+        await client.query(
+            `UPDATE users
+             SET password = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = $2`,
+            [hashedPassword, req.session.userId]
+        );
+
+        await client.query("COMMIT");
+        transactionStarted = false;
+
+        req.session.passwordSuccess = "Password updated successfully.";
+        return res.redirect("/settings");
+
+    } catch (err) {
+        if (client && transactionStarted) {
+            await client.query("ROLLBACK").catch(console.error);
+        }
+
+        console.error("Error changing password:", err);
+        return showError("Unable to change your password. Please try again.");
+
+    } finally {
+        if (client) client.release();
+    }
+});
+
 app.get("/pricing", (req, res) => {
     res.render("pricing.ejs");
 });
